@@ -1,0 +1,19 @@
+{
+  "name": "sn-chat-agent",
+  "version": "1.0.0",
+  "description": "ServiceNow LLM-powered chatbot with React frontend and Python backend",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && python3 simple_server.py",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:frontend": "cd frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "npm run dev"
+  },
+  "keywords": ["servicenow", "chatbot", "react", "python", "fastapi", "typescript"],
+  "author": "ServiceNow Chatbot Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
