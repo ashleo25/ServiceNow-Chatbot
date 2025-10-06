@@ -1,0 +1,315 @@
+/* SmarTek21 ChatGPT-Style Message Input */
+/* Using CSS custom properties from globals.css */
+
+.message-input {
+  padding: 0;
+  background: transparent;
+  max-width: 768px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  font-family: var(--font-family-system);
+}
+
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+  background-color: var(--color-bg-primary);
+  border: 2px solid var(--color-border-secondary);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-md) var(--spacing-lg);
+  transition: var(--transition-colors);
+  position: relative;
+  overflow: hidden;
+  min-height: 52px;
+  box-shadow: var(--shadow-lg);
+}
+
+.input-container:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle), var(--shadow-xl);
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 2px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: var(--transition-colors);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.action-button:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.action-button:active {
+  background-color: var(--color-bg-tertiary);
+}
+
+.action-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.action-button.recording {
+  background-color: var(--color-error-subtle);
+  color: var(--color-error);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.message-textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  resize: none;
+  min-height: 24px;
+  max-height: 120px;
+  width: 100%;
+  font-family: var(--font-family-system);
+  font-weight: var(--font-weight-normal);
+  padding: 0;
+}
+
+.message-textarea::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-normal);
+}
+
+.message-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--spacing-xs);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.input-container:focus-within .input-footer {
+  opacity: 1;
+}
+
+.char-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-normal);
+}
+
+.send-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  cursor: pointer;
+  transition: var(--transition-colors);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
+.send-button:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.send-button:active {
+  background-color: var(--color-accent-hover);
+  transform: translateY(0);
+}
+
+.send-button.active {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.send-button.active:hover {
+  background-color: var(--color-success-hover);
+}
+
+.send-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: var(--color-text-tertiary);
+  transform: none;
+  box-shadow: none;
+}
+
+.send-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.send-button svg {
+  transition: transform var(--transition-fast);
+}
+
+.send-button:hover:not(:disabled) svg {
+  transform: scale(1.05);
+}
+
+/* Input Container Spacing */
+.message-input {
+  padding: var(--spacing-lg) var(--spacing-xl);
+}
+
+/* Responsive Design */
+/* Responsive Design */
+@media (max-width: 768px) {
+  .message-input {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+  
+  .input-container {
+    padding: var(--spacing-sm) var(--spacing-md);
+    gap: var(--spacing-sm);
+    min-height: 48px;
+  }
+  
+  .action-button {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .action-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .send-button {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .send-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .message-textarea {
+    font-size: var(--font-size-sm);
+  }
+  
+  .char-count {
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .message-input {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  .input-container {
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+    min-height: 44px;
+  }
+  
+  .action-button {
+    width: 26px;
+    height: 26px;
+  }
+  
+  .action-button svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .send-button {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .send-button svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .message-textarea {
+    font-size: var(--font-size-sm);
+  }
+  
+  .char-count {
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+  .input-container,
+  .action-button,
+  .send-button,
+  .input-footer {
+    transition: none;
+  }
+  
+  .action-button.recording {
+    animation: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .input-container {
+    border: 2px solid var(--color-text-primary);
+  }
+  
+  .send-button,
+  .action-button {
+    border: 1px solid var(--color-text-primary);
+  }
+}

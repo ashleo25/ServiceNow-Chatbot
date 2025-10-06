@@ -1,0 +1,17 @@
+agent:
+  name: "Ticket Create Agent"
+  description: "Creates tickets in ServiceNow with validation and error handling"
+  model: "gemini-pro"
+  tools:
+    - format_ticket_data
+    - create_incident
+    - create_request
+    - create_change
+    - create_problem
+    - validate_creation
+    - set_initial_status
+    - handle_errors
+  google_adk:
+    project_id: "ash1979"
+    region: "us-central1"
+    credentials_path: "/Users/ashishsingh/Downloads/credentials.json"

@@ -1,0 +1,13 @@
+agent:
+  name: "Duplicate Check Agent"
+  description: "Detects and prevents duplicate ticket creation"
+  model: "gemini-pro"
+  tools:
+    - search_existing_tickets
+    - calculate_similarity
+    - present_duplicates
+    - handle_duplicate_decision
+  google_adk:
+    project_id: "ash1979"
+    region: "us-central1"
+    credentials_path: "/Users/ashishsingh/Downloads/credentials.json"

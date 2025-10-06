@@ -1,0 +1,14 @@
+agent:
+  name: "Ticket Response Agent"
+  description: "Generates user-friendly responses and ticket summaries"
+  model: "gemini-pro"
+  tools:
+    - generate_creation_response
+    - generate_error_response
+    - format_ticket_summary
+    - create_ticket_links
+    - generate_recommendations
+  google_adk:
+    project_id: "ash1979"
+    region: "us-central1"
+    credentials_path: "/Users/ashishsingh/Downloads/credentials.json"

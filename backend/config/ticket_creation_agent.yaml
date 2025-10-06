@@ -1,0 +1,23 @@
+agent:
+  name: "Ticket Creation Master Agent"
+  description: "Orchestrates ticket creation with duplicate checking and user communication"
+  model: "gemini-pro"
+  tools:
+    - check_duplicates
+    - create_ticket
+    - validate_creation
+    - generate_response
+    - handle_errors
+    - present_duplicates
+    - handle_duplicate_decision
+  conversation_flow:
+    - duplicate_check
+    - user_confirmation
+    - ticket_creation
+    - validation
+    - response_generation
+    - follow_up
+  google_adk:
+    project_id: "ash1979"
+    region: "us-central1"
+    credentials_path: "/Users/ashishsingh/Downloads/credentials.json"
