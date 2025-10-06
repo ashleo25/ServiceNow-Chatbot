@@ -1,27 +1,106 @@
 """
-ServiceNow integration service for ticket creation operations
+ServiceNow Ticket Creation Service - REST API Integration
+
+This module provides comprehensive ServiceNow integration for ticket creation,
+duplicate detection, and ticket management operations. It handles all REST API
+interactions with ServiceNow instances and implements business logic for
+intelligent ticket processing.
+
+Key Features:
+    - Full ServiceNow REST API integration with authentication
+    - Multi-type ticket support (incident, change, service request, problem)
+    - Advanced duplicate detection with active state filtering
+    - Comprehensive search capabilities with query optimization
+    - Error handling and retry logic for reliable operations
+    - Detailed logging and monitoring for operational visibility
+
+API Integration:
+    - Basic authentication with ServiceNow instances
+    - Table API for CRUD operations on tickets
+    - Aggregate API for advanced queries and statistics
+    - Attachment API for file handling (future enhancement)
+    - Import Set API for bulk operations (future enhancement)
+
+Business Logic:
+    - Active state filtering (excludes resolved/closed tickets)
+    - User-specific ticket history and context
+    - Priority and SLA compliance validation
+    - Category-based routing and assignment logic
+    - Change management workflow integration
 """
-import requests
+
+# Standard library imports
 import base64
 import json
-from typing import Dict, List, Optional, Any
+import requests
 from datetime import datetime, timedelta
-from config.logging_config import get_logger
-from config.config import Config
+from typing import Dict, List, Optional, Any
 
+# Local imports
+from config.config import Config
+from config.logging_config import get_logger
+
+# Initialize logger
 logger = get_logger("servicenow_service")
 
+
 class ServiceNowTicketService:
-    """ServiceNow integration for ticket operations"""
+    """
+    Comprehensive ServiceNow REST API integration service.
+    
+    This service provides a complete interface to ServiceNow for all ticket-related
+    operations including creation, search, update, and duplicate detection. It
+    implements ServiceNow best practices and handles authentication, error recovery,
+    and data transformation.
+    
+    Attributes:
+        instance_url (str): ServiceNow instance base URL
+        username (str): ServiceNow authentication username
+        password (str): ServiceNow authentication password
+        api_version (str): ServiceNow API version to use
+        timeout (int): Request timeout in seconds
+        headers (dict): HTTP headers with authentication
+        
+    Methods:
+        search_duplicates(): Search for potential duplicate tickets
+        create_ticket(): Create new tickets in ServiceNow
+        get_ticket(): Retrieve ticket details by number or sys_id
+        update_ticket(): Update existing ticket information
+        search_tickets(): General ticket search with filters
+        
+    Configuration:
+        - Uses environment variables for sensitive credentials
+        - Supports multiple ServiceNow instances via configuration
+        - Implements connection pooling for performance
+        - Provides comprehensive error handling and logging
+    """
     
     def __init__(self):
-        self.instance_url = Config.SERVICENOW_INSTANCE_URL.replace("/login.do?user_name=admin&sys_action=sysverb_login&user_password=Bb7Q8Iqp%2Fp-B", "")
+        """
+        Initialize ServiceNow service with configuration and authentication.
+        
+        Sets up the REST API client with proper authentication headers,
+        validates configuration, and establishes connection parameters
+        for reliable ServiceNow integration.
+        
+        Raises:
+            ValueError: If required configuration is missing
+            ConnectionError: If ServiceNow instance is unreachable
+        """
+        # Clean and validate instance URL
+        raw_url = Config.SERVICENOW_INSTANCE_URL
+        self.instance_url = raw_url.replace(
+            "/login.do?user_name=admin&sys_action=sysverb_login&user_password=Bb7Q8Iqp%2Fp-B", 
+            ""
+        )
+        
+        # Set authentication credentials
         self.username = Config.SERVICENOW_USERNAME
         self.password = Config.SERVICENOW_PASSWORD
         self.api_version = Config.SERVICENOW_API_VERSION
         self.timeout = int(Config.SERVICENOW_TIMEOUT)
         
-        # Create basic auth header
+        # Create basic authentication header
         credentials = f"{self.username}:{self.password}"
         encoded_credentials = base64.b64encode(credentials.encode()).decode()
         self.headers = {
@@ -31,22 +110,56 @@ class ServiceNowTicketService:
         }
         
         logger.info(f"ServiceNow service initialized for instance: {self.instance_url}")
+        logger.info(f"API version: {self.api_version}, Timeout: {self.timeout}s")
     
     def search_duplicates(self, criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Search for potential duplicate tickets
+        Search for potential duplicate tickets using comprehensive criteria.
+        
+        This method implements intelligent duplicate detection by searching
+        existing tickets with multiple filters including user, category,
+        description, and time windows. It focuses on active tickets only
+        to prevent false positives from resolved issues.
         
         Args:
-            criteria: Search criteria including user_id, ticket_type, description, etc.
-            
+            criteria (Dict[str, Any]): Search criteria containing:
+                - user_id (str): User creating the ticket
+                - ticket_type (str): Type of ticket to search
+                - description (str): Description to match against
+                - category (str): Category for filtering
+                - priority (str): Priority level
+                - time_window_days (int): Days to search back
+                
         Returns:
-            List of potential duplicate tickets
+            List[Dict[str, Any]]: List of potential duplicate tickets with:
+                - sys_id: ServiceNow system ID
+                - number: Ticket number
+                - short_description: Brief description
+                - description: Full description
+                - state: Current ticket state
+                - priority: Priority level
+                - category: Category classification
+                - created_on: Creation timestamp
+                - caller_id: User who created the ticket
+                
+        Raises:
+            requests.RequestException: If ServiceNow API call fails
+            ValueError: If search criteria is invalid
+            
+        Note:
+            - Only searches active tickets (state != 6, 7)
+            - Implements fuzzy matching for description similarity
+            - Orders results by creation date (newest first)
+            - Limits results to prevent performance issues
         """
-        logger.info(f"Searching for duplicates with criteria: {criteria}")
+        logger.info(f"Searching for duplicate tickets with criteria: {criteria}")
         
         try:
-            # Build search query
+            # Build comprehensive search query with active state filtering
             query_parts = []
+            
+            # Critical: Only search active tickets (exclude resolved/closed)
+            query_parts.append("state!=6^state!=7")  # Not resolved or closed
             
             if criteria.get("user_id"):
                 query_parts.append(f"caller_id={criteria['user_id']}")

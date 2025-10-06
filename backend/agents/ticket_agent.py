@@ -1,7 +1,41 @@
 """
-Ticket Creation Agent implementation using OCI ADK
+ServiceNow Ticket Management Agent - OCI ADK Integration
+
+This module provides comprehensive ServiceNow ticket management capabilities
+through Oracle Cloud Infrastructure (OCI) Agent Development Kit integration.
+It handles creation, updating, and status tracking of various ticket types.
+
+Key Features:
+    - Multi-type ticket creation (incident, change, service request)
+    - Real-time ticket status monitoring and updates
+    - ServiceNow REST API integration through OCI ADK
+    - Comprehensive error handling and retry logic
+    - Automated workflow processing and routing
+
+Supported Ticket Types:
+    - Incident tickets for issue reporting and resolution
+    - Change requests for system modifications
+    - Service requests for user access and resources
+    - Problem tickets for root cause analysis
+
+Architecture:
+    - OCI ADK agent wrapper for ServiceNow operations
+    - Tool-based architecture for modular functionality
+    - Configuration-driven setup for multiple environments
+    - Logging and monitoring for operational visibility
+
+Usage:
+    ```python
+    from agents.ticket_agent import TicketAgent
+    agent = TicketAgent(oci_client)
+    result = agent.create_ticket("incident", **ticket_data)
+    ```
 """
+
+# Third-party imports
 from oci.addons.adk import Agent, AgentClient
+
+# Local imports
 from config.config import Config
 from tools.ticket_tools import (
     create_incident_ticket,
@@ -13,9 +47,50 @@ from tools.ticket_tools import (
 
 
 class TicketAgent:
-    """Ticket Creation Agent for creating and managing ServiceNow tickets"""
+    """
+    Comprehensive ServiceNow ticket management agent using OCI ADK.
+    
+    This agent provides a complete interface for ServiceNow ticket operations
+    including creation, status tracking, and updates. It leverages OCI's Agent
+    Development Kit for reliable and scalable ticket management workflows.
+    
+    Attributes:
+        client (AgentClient): OCI ADK client for agent operations
+        agent (Agent): Configured OCI agent instance for ticket operations
+        
+    Methods:
+        create_ticket(): Create new tickets of various types
+        get_ticket_status(): Retrieve current ticket status
+        update_ticket(): Add updates and work notes to existing tickets
+        
+    Supported Operations:
+        - Incident creation and management
+        - Change request processing
+        - Service request fulfillment
+        - Ticket status queries and updates
+        - Work notes and comments management
+        
+    Error Handling:
+        - Comprehensive exception handling for API failures
+        - Retry logic for transient network issues
+        - Detailed error logging and user feedback
+        - Graceful degradation for service outages
+    """
     
     def __init__(self, client: AgentClient):
+        """
+        Initialize the ticket agent with OCI ADK client.
+        
+        Sets up the OCI agent instance with proper configuration for
+        ServiceNow ticket operations and establishes connection to
+        the configured agent endpoint.
+        
+        Args:
+            client (AgentClient): Initialized OCI ADK client instance
+            
+        Raises:
+            Exception: If agent initialization fails or endpoint is invalid
+        """
         self.client = client
         self.agent = Agent(
             client=client,

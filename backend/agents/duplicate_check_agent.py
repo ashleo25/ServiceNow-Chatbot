@@ -1,51 +1,121 @@
 """
-Duplicate Check Agent - Detects and prevents duplicate ticket creation
+Duplicate Check Agent - Intelligent Ticket Duplication Prevention
+
+This module implements comprehensive duplicate detection and prevention logic
+for the ServiceNow ticket creation system. It analyzes multiple factors to
+identify potential duplicate tickets and prevents unnecessary ticket creation.
+
+Key Features:
+    - Multi-criteria duplicate detection (text, user, category, priority)
+    - 70% similarity threshold with intelligent scoring algorithms
+    - Active ticket state filtering (New/Open/In Progress only)
+    - Time-window based search optimization (30-day window)
+    - User decision handling for confirmed duplicates
+    - Detailed similarity reporting and recommendations
+
+Business Logic:
+    - Searches existing active tickets using ServiceNow REST API
+    - Calculates similarity scores using SequenceMatcher algorithm
+    - Considers multiple factors: description, category, user, priority
+    - Blocks ticket creation for high-similarity active duplicates
+    - Provides detailed duplicate analysis for user review
+
+Detection Strategies:
+    1. Text similarity analysis (primary factor)
+    2. Category and priority matching (secondary factors)
+    3. User-specific ticket history analysis
+    4. Time-based relevance scoring
+    5. Multi-factor weighted scoring system
 """
-from typing import Dict, List, Any, Optional
-from difflib import SequenceMatcher
+
+# Standard library imports
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
+from typing import Dict, List, Any, Optional
+
+# Local imports
 from config.logging_config import get_logger
 from services.ticket_creation_service import ServiceNowTicketService
 
+# Initialize logger
 logger = get_logger("duplicate_check_agent")
+
 
 class DuplicateCheckAgent:
     """
-    Sub-Agent 1: Duplicate Detection & Prevention
-    Responsibilities:
-    - Search existing tickets using multiple criteria
-    - Calculate similarity scores between new and existing tickets
-    - Present duplicate candidates to user with detailed comparison
-    - Handle user decision (proceed/stop/modify)
-    - Provide duplicate prevention recommendations
+    Intelligent duplicate detection and prevention agent.
+    
+    This agent implements sophisticated algorithms to detect potential duplicate
+    tickets before they are created in ServiceNow. It uses multi-factor analysis
+    including text similarity, user history, category matching, and priority
+    assessment to make intelligent duplication decisions.
+    
+    Attributes:
+        servicenow_service: ServiceNow API integration service
+        similarity_threshold (float): Minimum similarity score for duplicates (0.7)
+        time_window_days (int): Search window for duplicate detection (30 days)
+        
+    Methods:
+        check_duplicates(): Main duplicate detection entry point
+        should_block_creation(): Determines if ticket creation should be blocked
+        calculate_similarity(): Computes similarity scores between tickets
+        _search_existing_tickets(): Searches ServiceNow for potential duplicates
+        _analyze_duplicates(): Performs detailed duplicate analysis
+        
+    Business Rules:
+        - Only considers active tickets (state != 6, 7)
+        - Requires 70% similarity threshold for duplicate classification
+        - Prioritizes recent tickets within 30-day window
+        - Blocks creation for high-confidence duplicates
+        - Provides detailed analysis for borderline cases
     """
     
     def __init__(self):
+        """
+        Initialize the duplicate check agent with default configuration.
+        
+        Sets up ServiceNow integration and configures detection parameters
+        based on business requirements and performance considerations.
+        """
         self.servicenow_service = ServiceNowTicketService()
         self.similarity_threshold = 0.7  # 70% similarity threshold
         self.time_window_days = 30  # Search within last 30 days
         
-        logger.info("Duplicate Check Agent initialized")
+        logger.info("Duplicate Check Agent initialized successfully")
         logger.info(f"Similarity threshold: {self.similarity_threshold}")
         logger.info(f"Time window: {self.time_window_days} days")
     
-    def check_duplicates(self, ticket_data: Dict[str, Any], user_id: str, ticket_type: str) -> Dict[str, Any]:
+    def check_duplicates(self, ticket_data: Dict[str, Any], 
+                        user_id: str, ticket_type: str) -> Dict[str, Any]:
         """
-        Search for potential duplicates using multiple strategies
+        Perform comprehensive duplicate detection analysis.
+        
+        This method orchestrates the complete duplicate detection workflow,
+        including searching existing tickets, calculating similarity scores,
+        and determining whether ticket creation should proceed.
         
         Args:
-            ticket_data: New ticket data to check against
-            user_id: User creating the ticket
-            ticket_type: Type of ticket (incident, request, change, problem)
+            ticket_data (Dict[str, Any]): New ticket data to analyze
+            user_id (str): ID of the user creating the ticket
+            ticket_type (str): Type of ticket (incident, request, change, problem)
             
         Returns:
-            Dictionary with duplicate check results
+            Dict[str, Any]: Comprehensive duplicate analysis results containing:
+                - duplicates_found (bool): Whether duplicates were detected
+                - should_block (bool): Whether creation should be blocked
+                - duplicate_tickets (List): List of similar tickets found
+                - similarity_scores (Dict): Detailed similarity analysis
+                - recommendations (str): User guidance and next steps
+                
+        Raises:
+            Exception: If ServiceNow API call fails or data processing errors
         """
-        logger.info(f"Starting duplicate check for {ticket_type} ticket by user: {user_id}")
-        logger.debug(f"Ticket data: {ticket_data}")
+        logger.info(f"Starting duplicate check for {ticket_type} ticket "
+                   f"by user: {user_id}")
+        logger.debug(f"Analyzing ticket data: {ticket_data}")
         
         try:
-            # Build search criteria
+            # Build comprehensive search criteria
             search_criteria = {
                 "user_id": user_id,
                 "ticket_type": ticket_type,

@@ -1,14 +1,41 @@
 """
-FastAPI backend server for OCI Generative AI Agents chatbot
+ServiceNow Enterprise Chatbot - FastAPI Backend Server
+
+This module provides the main FastAPI application server for the ServiceNow 
+Enterprise Chatbot. It integrates Oracle Cloud Infrastructure (OCI) Generative AI, 
+Google ADK, and ServiceNow APIs to provide intelligent ticket creation and 
+knowledge search capabilities.
+
+Features:
+    - RESTful API endpoints for chat interactions
+    - OCI Generative AI integration for knowledge search
+    - Google ADK powered ticket creation with duplicate prevention
+    - ServiceNow REST API integration for ticket management
+    - Hybrid chatbot service with intent detection
+    - Comprehensive health monitoring and debugging endpoints
+
+Architecture:
+    - FastAPI with async/await support for high performance
+    - Modular agent-based architecture for scalability
+    - CORS middleware for frontend integration
+    - Pydantic models for type safety and validation
+    - Global agent initialization with proper lifecycle management
+
+Version: 1.0.0
 """
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+
+# Standard library imports
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Optional, Dict, Any
 
+# Third-party imports
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Local imports
 from config.config import Config
 from oci.addons.adk import AgentClient
 from agents.oci_compliant_core_search_agent import OciCompliantCoreSearchAgent
@@ -17,64 +44,96 @@ from agents.ticket_creation_agent import TicketCreationAgent
 from services.hybrid_chatbot_service import HybridChatbotService
 
 
-# Global variables
-search_agent = None
-ticket_agent = None
-ticket_creation_agent = None
-chatbot_service = None
+# Global agent instances
+# These are initialized during application startup and shared across requests
+search_agent: Optional[OciCompliantCoreSearchAgent] = None
+ticket_agent: Optional[TicketAgent] = None
+ticket_creation_agent: Optional[TicketCreationAgent] = None
+chatbot_service: Optional[HybridChatbotService] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize agents on startup"""
-    global search_agent
+    """
+    Application lifespan manager for FastAPI.
+    
+    Handles initialization and cleanup of AI agents and services during
+    application startup and shutdown. This ensures all dependencies are
+    properly configured before handling requests.
+    
+    Args:
+        app (FastAPI): The FastAPI application instance
+        
+    Yields:
+        None: Control is yielded to the application during its lifetime
+        
+    Raises:
+        Exception: If agent initialization fails during startup
+        
+    Note:
+        - Validates configuration before initializing agents
+        - Creates OCI client with authentication
+        - Initializes search, ticket, and chatbot services
+        - Provides graceful shutdown cleanup
+    """
+    # Global agent references
+    global search_agent, ticket_agent, ticket_creation_agent, chatbot_service
     
     try:
-        # Validate configuration
+        # Validate configuration before proceeding
         Config.validate_config()
+        print("✅ Configuration validated successfully")
         
-        # Create OCI client
+        # Create OCI client with authentication
         client = AgentClient(
             auth_type=Config.AUTH_TYPE,
             profile=Config.PROFILE,
             region=Config.REGION
         )
+        print("✅ OCI Agent Client initialized")
         
-        # Initialize agents
-        global search_agent, ticket_agent, ticket_creation_agent, chatbot_service
+        # Initialize core agents
         search_agent = OciCompliantCoreSearchAgent(client)
         ticket_agent = TicketAgent(client)
         ticket_creation_agent = TicketCreationAgent()
+        
+        # Initialize hybrid chatbot service
         chatbot_service = HybridChatbotService(
             search_agent=search_agent,
             ticket_agent=ticket_agent,
             ticket_creation_agent=ticket_creation_agent
         )
         
+        # Log successful initialization
         print("✅ Search Agent initialized successfully")
         print("✅ Ticket Agent initialized successfully")
         print("✅ Ticket Creation Agent initialized successfully")
         print("✅ Chatbot Service initialized successfully")
+        print("🚀 Application ready to serve requests")
         
     except Exception as e:
-        print(f"❌ Failed to initialize search agent: {str(e)}")
+        print(f"❌ Failed to initialize agents: {str(e)}")
         raise e
     
+    # Yield control to the application
     yield
     
     # Cleanup on shutdown
-    print("🔄 Shutting down search agent...")
+    print("🔄 Shutting down agents and services...")
+    # Additional cleanup logic can be added here if needed
 
 
-# Create FastAPI app
+# Create FastAPI app with comprehensive metadata
 app = FastAPI(
-    title="OCI Generative AI Agents Chatbot API",
-    description="API for React chatbot integrated with OCI Generative AI Agents",
+    title="ServiceNow Enterprise Chatbot API",
+    description="RESTful API for ServiceNow chatbot with OCI AI integration",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Add CORS middleware
+# Configure CORS middleware for frontend integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=Config.CORS_ORIGINS,
@@ -84,33 +143,231 @@ app.add_middleware(
 )
 
 
-# Pydantic models
+# ========================= PYDANTIC MODELS =========================
+
 class ChatMessage(BaseModel):
+    """
+    Standard chat message model for basic interactions.
+    
+    Attributes:
+        message (str): The user's chat message content
+        agent_type (str): Type of agent to handle the request 
+                         ("search" or "ticket", defaults to "search")
+        context (Optional[Dict[str, Any]]): Additional context data
+    """
     message: str
-    agent_type: str = "search"  # "search" or "ticket"
+    agent_type: str = "search"
     context: Optional[Dict[str, Any]] = None
 
+
 class EnhancedChatMessage(BaseModel):
+    """
+    Enhanced chat message model with session management.
+    
+    Attributes:
+        message (str): The user's chat message content
+        session_data (Optional[Dict[str, Any]]): Session state and context
+    """
     message: str
     session_data: Optional[Dict[str, Any]] = None
 
 
 class SearchRequest(BaseModel):
+    """
+    Search request model for knowledge base queries.
+    
+    Attributes:
+        query (str): The search query string
+        search_type (str): Type of search ("knowledge" or "servicenow")
+    """
     query: str
-    search_type: str = "knowledge"  # "knowledge" or "servicenow"
+    search_type: str = "knowledge"
 
 
-# Ticket-related models removed - focusing on Search Agent only
+class TicketCreationRequest(BaseModel):
+    """
+    Comprehensive ticket creation request model.
+    
+    Supports multiple ticket types (incident, change, service) with
+    appropriate fields for each type.
+    
+    Attributes:
+        ticket_type (str): Type of ticket to create
+        short_description (str): Brief description of the issue
+        description (str): Detailed description
+        category (Optional[str]): Ticket category classification
+        priority (Optional[str]): Priority level (1-5 scale)
+        assigned_group (Optional[str]): Group to assign the ticket
+        caller_id (Optional[str]): ID of the person reporting the issue
+        change_type (Optional[str]): Type of change (for change tickets)
+        risk (Optional[str]): Risk level (for change tickets)
+        implementation_plan (Optional[str]): Plan details (for changes)
+        requested_for (Optional[str]): Requestor (for service requests)
+        service_catalog_item (Optional[str]): Catalog item name
+    """
+    ticket_type: str
+    short_description: str
+    description: str
+    category: Optional[str] = "General"
+    priority: Optional[str] = "3 - Medium"
+    assigned_group: Optional[str] = None
+    caller_id: Optional[str] = None
+    change_type: Optional[str] = "Standard"
+    risk: Optional[str] = "Medium"
+    implementation_plan: Optional[str] = None
+    requested_for: Optional[str] = None
+    service_catalog_item: Optional[str] = "General Request"
 
 
-# Health check endpoint
+class TicketStatusRequest(BaseModel):
+    """
+    Ticket status inquiry request model.
+    
+    Attributes:
+        ticket_number (str): The ticket number to check
+    """
+    ticket_number: str
+
+
+class TicketUpdateRequest(BaseModel):
+    """
+    Ticket update request model.
+    
+    Attributes:
+        ticket_number (str): The ticket number to update
+        work_notes (str): Work notes to add to the ticket
+    """
+    ticket_number: str
+    work_notes: str
+
+
+class DuplicateDecisionRequest(BaseModel):
+    """
+    Duplicate ticket decision request model.
+    
+    Attributes:
+        decision (str): User decision (proceed, stop, link, modify)
+        session_data (Dict[str, Any]): Current session context
+    """
+    decision: str
+    session_data: Dict[str, Any]
+
+
+# ========================= HEALTH & DEBUG ENDPOINTS =========================
+
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Health check endpoint for monitoring service status.
+    
+    Returns:
+        dict: Service health status and agent initialization states
+        
+    Example:
+        GET /health
+        Response: {"status": "healthy", "search_agent_initialized": true}
+    """
     return {
         "status": "healthy",
-        "search_agent_initialized": search_agent is not None
+        "search_agent_initialized": search_agent is not None,
+        "timestamp": str(datetime.now())
     }
+
+
+@app.get("/debug")
+async def debug_info():
+    """
+    Debug endpoint for development and troubleshooting.
+    
+    Provides detailed information about backend services, agent states,
+    and configuration for frontend integration testing.
+    
+    Returns:
+        dict: Comprehensive debug information including:
+            - Backend status and timestamp
+            - Agent initialization states
+            - CORS configuration
+            - Service availability
+    """
+    search_status = "initialized" if search_agent else "not_initialized"
+    ticket_status = "initialized" if ticket_agent else "not_initialized"
+    chatbot_status = "initialized" if chatbot_service else "not_initialized"
+    
+    return {
+        "message": "Backend is running",
+        "timestamp": str(datetime.now()),
+        "search_agent_status": search_status,
+        "ticket_agent_status": ticket_status,
+        "chatbot_service_status": chatbot_status,
+        "cors_origins": Config.CORS_ORIGINS
+    }
+
+
+# ========================= TEST ENDPOINTS =========================
+
+@app.post("/test/enhanced")
+async def test_enhanced_chat():
+    """
+    Test endpoint for enhanced chat functionality.
+    
+    Validates the hybrid chatbot service with a predefined test message
+    to ensure proper integration and response formatting.
+    
+    Returns:
+        dict: Test result with status and response data
+        
+    Raises:
+        dict: Error information if chatbot service is not available
+    """
+    try:
+        if not chatbot_service:
+            return {"error": "Chatbot service not initialized"}
+        
+        test_message = "Hello, I need help with my laptop"
+        result = chatbot_service.process_message(test_message)
+        return {
+            "status": "success",
+            "result": result
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": str(e.__traceback__)
+        }
+
+
+@app.get("/test/knowledge")
+async def test_knowledge_search():
+    """
+    Test endpoint for direct knowledge base search functionality.
+    
+    Performs a direct test of the knowledge search capabilities using
+    the Core Search Agent to validate search functionality.
+    
+    Returns:
+        dict: Test search results or error information
+    """
+    try:
+        if not chatbot_service:
+            return {"error": "Chatbot service not initialized"}
+        
+        # Test knowledge base search directly using Core Search Agent
+        from agents.core_search_agent import CoreSearchAgent
+        search_agent = CoreSearchAgent()
+        result = search_agent.search("Windows", "knowledge")
+        
+        return {
+            "status": "success",
+            "result": result
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": str(e.__traceback__)
+        }
 
 # Debug endpoint for frontend testing
 @app.get("/debug")

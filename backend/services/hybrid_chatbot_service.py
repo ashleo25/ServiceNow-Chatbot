@@ -1,22 +1,116 @@
 """
-Hybrid Chatbot Service using Azure OpenAI + OCI Agents
+Hybrid Chatbot Orchestration Service - Multi-AI Integration
+
+This module provides the main orchestration service for the ServiceNow Enterprise
+Chatbot, integrating multiple AI services and agents to provide comprehensive
+chat capabilities including knowledge search and intelligent ticket creation.
+
+Key Features:
+    - Multi-AI integration (Azure OpenAI + OCI Generative AI + Google ADK)
+    - Intelligent intent detection and routing between services
+    - Session state management across conversation flows
+    - Seamless transition between search and ticket creation workflows
+    - Context-aware conversation management and history tracking
+
+Architecture Components:
+    - Azure OpenAI for general conversation and complex reasoning
+    - OCI Generative AI for specialized knowledge search operations
+    - Google ADK for intelligent ticket creation with function calling
+    - Conversation manager for session state and context preservation
+    - Intent detection for routing user requests to appropriate agents
+
+Workflow Orchestration:
+    1. Message analysis and intent detection
+    2. Route to appropriate specialized agent or service
+    3. Maintain conversation context and session state
+    4. Coordinate multi-step workflows (e.g., ticket creation process)
+    5. Provide seamless user experience across different AI capabilities
+
+Business Logic:
+    - Detects ticket creation intents and routes to Google ADK agent
+    - Handles knowledge search requests via OCI search agents
+    - Manages complex multi-turn conversations with state persistence
+    - Provides fallback to general AI for unspecified requests
+    - Implements error handling and recovery across all services
 """
+
+# Standard library imports
+import json
 from typing import Dict, Any, List, Optional
-from services.azure_openai_service import AzureOpenAIService
-from services.conversation_manager import ConversationManager, IntentType
+
+# Local imports
 from agents.oci_compliant_core_search_agent import OciCompliantCoreSearchAgent
 from agents.search_agent import SearchAgent
 from agents.search_orchestrator import SearchOrchestrator
 from agents.ticket_agent import TicketAgent
 from agents.ticket_creation_agent import TicketCreationAgent
-import json
+from services.azure_openai_service import AzureOpenAIService
+from services.conversation_manager import ConversationManager, IntentType
+
 
 class HybridChatbotService:
-    """Hybrid chatbot service using Azure OpenAI for general AI and OCI Agents for specific tasks"""
+    """
+    Main orchestration service for hybrid multi-AI chatbot functionality.
     
-    def __init__(self, search_agent: SearchAgent = None, ticket_agent: TicketAgent = None, ticket_creation_agent: TicketCreationAgent = None):
+    This service coordinates between multiple AI providers and specialized agents
+    to provide comprehensive chatbot capabilities. It handles intent detection,
+    routing, session management, and workflow orchestration across different
+    AI services and backend systems.
+    
+    Attributes:
+        azure_openai (AzureOpenAIService): General AI conversation service
+        conversation_manager (ConversationManager): Session and context management
+        search_service: OCI-based search service (when available)
+        search_agent (SearchAgent): Knowledge search agent
+        ticket_agent (TicketAgent): ServiceNow ticket operations agent
+        ticket_creation_agent (TicketCreationAgent): Google ADK ticket agent
+        
+    Methods:
+        process_message(): Main entry point for message processing
+        _detect_intent(): Analyze user message for intent classification
+        _handle_search_request(): Process knowledge search requests
+        _handle_ticket_request(): Process ticket creation requests
+        _handle_general_conversation(): Handle general chat interactions
+        
+    Integration Points:
+        - Azure OpenAI for conversational AI and complex reasoning
+        - OCI Generative AI for domain-specific knowledge search
+        - Google ADK for intelligent ticket creation workflows
+        - ServiceNow REST API for ticket management operations
+        - Session management for multi-turn conversation flows
+        
+    Error Handling:
+        - Graceful degradation when services are unavailable
+        - Fallback routing for failed intent detection
+        - Comprehensive error logging and user feedback
+        - Service health monitoring and automatic recovery
+    """
+    
+    def __init__(self, search_agent: SearchAgent = None, 
+                 ticket_agent: TicketAgent = None, 
+                 ticket_creation_agent: TicketCreationAgent = None):
+        """
+        Initialize the hybrid chatbot service with AI agents and services.
+        
+        Sets up the multi-AI architecture by initializing all required services
+        and agents, establishing connections, and configuring routing logic for
+        different types of user requests.
+        
+        Args:
+            search_agent (SearchAgent, optional): Knowledge search agent instance
+            ticket_agent (TicketAgent, optional): ServiceNow ticket operations agent
+            ticket_creation_agent (TicketCreationAgent, optional): Google ADK agent
+            
+        Note:
+            - Services are initialized with graceful fallbacks for missing components
+            - OCI search service requires proper AgentClient configuration
+            - All agents support hot-swapping for testing and development
+        """
+        # Initialize core AI services
         self.azure_openai = AzureOpenAIService()
         self.conversation_manager = ConversationManager()
+        
+        # Initialize specialized agents
         # Note: OciCompliantCoreSearchAgent requires AgentClient 
         # Will be updated when AgentClient integration is complete
         self.search_service = None
@@ -24,16 +118,48 @@ class HybridChatbotService:
         self.ticket_agent = ticket_agent
         self.ticket_creation_agent = ticket_creation_agent
     
-    def process_message(self, message: str, session_data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def process_message(self, message: str, 
+                       session_data: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Process a user message using hybrid approach
+        Process user message using hybrid multi-AI approach.
+        
+        This is the main entry point for all chatbot interactions. It analyzes
+        the user message, detects intent, routes to appropriate services, and
+        manages the conversation flow while maintaining session state.
         
         Args:
-            message (str): User's message
-            session_data (dict): Current session data
-            
+            message (str): User's input message to process
+            session_data (Dict[str, Any], optional): Current session context data
+                
         Returns:
-            Dict with response, session_data, and next_action
+            Dict[str, Any]: Comprehensive response containing:
+                - response (str): Generated response text for the user
+                - session_data (dict): Updated session state and context
+                - next_action (str): Suggested next action or workflow step
+                - message_type (str): Classification of the response type
+                - intent (str): Detected user intent from the message
+                - confidence (float): Confidence score for intent detection
+                - agent_used (str): Which agent/service processed the request
+                
+        Workflow:
+            1. Analyze message for intent and context
+            2. Update session state with new information
+            3. Route to appropriate specialized agent or service
+            4. Process response and update conversation history
+            5. Return formatted response with next steps
+            
+        Raises:
+            Exception: If all services fail or critical error occurs
+            
+        Example:
+            ```python
+            service = HybridChatbotService()
+            result = service.process_message(
+                "My laptop won't start", 
+                {"user_id": "john.doe"}
+            )
+            print(result["response"])  # AI-generated helpful response
+            ```
         """
         if session_data is None:
             session_data = {
